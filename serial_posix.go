@@ -1,4 +1,5 @@
 // +build !windows,cgo
+// +build ignore
 
 package serial
 

@@ -3,6 +3,7 @@
 package serial
 
 import (
+	"fmt"
 	"os"
 	"syscall"
 	"time"
@@ -43,10 +44,10 @@ func openPort(name string, baud int, databits byte, parity Parity, stopbits Stop
 		4000000: syscall.B4000000,
 	}
 
-	rate := bauds[baud]
+	rate, ok := bauds[baud]
 
-	if rate == 0 {
-		return
+	if !ok {
+		return nil, fmt.Errorf("Unrecognized baud rate")
 	}
 
 	f, err := os.OpenFile(name, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NONBLOCK, 0666)
@@ -142,25 +143,33 @@ func (p *Port) Write(b []byte) (n int, err error) {
 func (p *Port) ClearRTS() error {
 	const TCCMBIC = 0x5417
 	var data int = syscall.TIOCM_RTS
-	_, _, err := syscall.Syscall(
+	_, _, errno := syscall.Syscall(
 		syscall.SYS_IOCTL,
 		uintptr(p.f.Fd()),
 		uintptr(TCCMBIC),
 		uintptr(unsafe.Pointer(&data)),
 	)
-	return err
+
+	if errno == 0 {
+		return nil
+	}
+	return errno
 }
 // Discards data written to the port but not transmitted,
 // or data received but not read
 func (p *Port) Flush() error {
 	const TCFLSH = 0x540B
-	_, _, err := syscall.Syscall(
+	_, _, errno := syscall.Syscall(
 		syscall.SYS_IOCTL,
 		uintptr(p.f.Fd()),
 		uintptr(TCFLSH),
 		uintptr(syscall.TCIOFLUSH),
 	)
-	return err
+
+	if errno == 0 {
+		return nil
+	}
+	return errno
 }
 
 func (p *Port) Close() (err error) {
